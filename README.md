@@ -1,4 +1,4 @@
-# Tubes1ML_G07_SSB
+# Tubes2ML_G07_SSB
 Tugas Besar 2 Pembelajaran Mesin | CNN, RNN, LSTM
 
 ## Deskripsi Singkat
