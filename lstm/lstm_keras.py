@@ -146,22 +146,13 @@ def plot_training_history(history, title="LSTM Model Training History"):
     plt.show()
 
 def main():
-    print("Loading data...")
     train_df, valid_df, test_df = load_data()
-    
-    print(f"Data loaded successfully!")
-    print(f"Train samples: {len(train_df)}")
-    print(f"Validation samples: {len(valid_df)}")
-    print(f"Test samples: {len(test_df)}")
-
-    print("\nPreprocessing data...")
     max_tokens = 10000
     sequence_length = 100
     
     (train_sequences, train_labels, valid_sequences, valid_labels, test_sequences, test_labels, vectorize_layer, label_mapping) = preprocess_data(train_df, valid_df, test_df, max_tokens, sequence_length)
     
     vocab_size = vectorize_layer.vocabulary_size()
-    print(f"Preprocessing completed!")
     print(f"Vocabulary size: {vocab_size}")
     print(f"Sequence length: {sequence_length}")
     print(f"Label mapping: {label_mapping}")
@@ -173,8 +164,6 @@ def main():
         dropout_rate=0.5, 
         num_classes=len(label_mapping) 
     )
-    
-    print("Model built successfully!")
     model.summary()
 
     print("\nTraining LSTM model...")
@@ -185,16 +174,12 @@ def main():
         epochs=20,
         batch_size=32
     )
-    print("Training completed!")
-
-    print("\nPlotting training history...")
 
     print("\nEvaluating model on test set...")
     macro_f1, predictions = evaluate_model(model, test_sequences, test_labels, label_mapping)
 
     print(f"\nFinal Macro F1-Score: {macro_f1:.4f}")
 
-    print("\nSaving model and weights...")
     model.save('model/lstm_model.h5')
     model.save_weights('model/lstm.weights.h5')
 
