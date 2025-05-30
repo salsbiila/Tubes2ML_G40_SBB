@@ -62,9 +62,8 @@ class PoolingLayer(Layer):
                         
                         if self.mode == 'max':
                             # Distribute gradient only to the position of the max value
-                            # from the forward pass cache
                             h_idx_in, w_idx_in = self.cache[(b, h_out, w_out, c_idx)]
-                            d_input[b, h_idx_in, w_idx_in, c_idx] += grad_val # Use += for safety if pools overlap
+                            d_input[b, h_idx_in, w_idx_in, c_idx] += grad_val 
                         elif self.mode == 'average':
                             # Distribute gradient equally to all elements in the receptive field
                             h_start = h_out * self.stride_h

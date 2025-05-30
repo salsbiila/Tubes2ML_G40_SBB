@@ -32,7 +32,6 @@ class Conv2DLayer(Layer):
     def initialize_parameters(self, input_channels):
         self._input_channels = input_channels
         
-        # Weight Initialization
         if self.weight_initializer_mode == 'he':
             stddev = np.sqrt(2. / (self.f_h * self.f_w * self._input_channels))
             self.weights = np.random.randn(self.f_h, self.f_w, self._input_channels, self.num_filters) * stddev
@@ -41,7 +40,7 @@ class Conv2DLayer(Layer):
             self.weights = np.random.randn(self.f_h, self.f_w, self._input_channels, self.num_filters) * stddev
         elif self.weight_initializer_mode == 'zeros':
             self.weights = np.zeros((self.f_h, self.f_w, self._input_channels, self.num_filters))
-        else: # Default to small random numbers
+        else:
             print(f"Warning: Unknown weight_initializer_mode '{self.weight_initializer_mode}'. Using small random numbers.")
             self.weights = np.random.randn(self.f_h, self.f_w, self._input_channels, self.num_filters) * 0.01
         
@@ -55,7 +54,7 @@ class Conv2DLayer(Layer):
         self.input_tensor_original_shape = input_tensor.shape 
         batch_size, i_h, i_w, i_c = input_tensor.shape
         
-        if self.weights is None: # Initialize parameters on the first forward pass
+        if self.weights is None:
             self.initialize_parameters(i_c)
         
         if self._input_channels != i_c:
@@ -100,9 +99,6 @@ class Conv2DLayer(Layer):
                     receptive_field = input_padded[b, h_start:h_end, w_start:w_end, :]
                     
                     for f_idx in range(self.num_filters):
-                        # Element-wise multiplication and sum, then add bias
-                        # Weights for current filter: self.weights[:, :, :, f_idx]
-                        # Bias for current filter: self.biases[0, 0, 0, f_idx]
                         conv_val = np.sum(receptive_field * self.weights[:, :, :, f_idx]) + self.biases[0, 0, 0, f_idx]
                         output_tensor[b, h_out, w_out, f_idx] = conv_val
         
@@ -119,7 +115,6 @@ class Conv2DLayer(Layer):
         for b in range(batch_size):
             for h_out in range(o_h):
                 for w_out in range(o_w):
-                    # Define the receptive field in the (padded) input corresponding to this output unit
                     h_start = h_out * self.stride_h
                     h_end = h_start + self.f_h
                     w_start = w_out * self.stride_w
@@ -128,31 +123,24 @@ class Conv2DLayer(Layer):
                     receptive_field_padded = self.input_padded_for_backward[b, h_start:h_end, w_start:w_end, :]
                     
                     for f_idx in range(self.num_filters):
-                        # Gradient dL/dO for the current output unit O[b, h_out, w_out, f_idx]
                         grad_slice_output = output_gradient[b, h_out, w_out, f_idx]
                         
-                        # Gradient for weights dL/dW_f:
                         # dL/dW_f += (dL/dO_current * X_receptive_field)
                         self.d_weights[:, :, :, f_idx] += receptive_field_padded * grad_slice_output
                         
-                        # Gradient for biases dL/dB_f:
                         # dL/dB_f += dL/dO_current
                         self.d_biases[0, 0, 0, f_idx] += grad_slice_output
                         
-                        # Gradient for the padded input dL/dX_padded:
                         # dL/dX_receptive_field += (dL/dO_current * W_f)
                         d_input_padded[b, h_start:h_end, w_start:w_end, :] += self.weights[:, :, :, f_idx] * grad_slice_output
         
-        # If 'same' padding was used, remove the padding from d_input_padded to get dL/dI_original
         if self.padding_mode == 'same':
             pad_top, pad_bottom, pad_left, pad_right = self.pad_dims
-            # Extract the central part corresponding to the original input dimensions
-            # Original height and width from stored shape
             orig_h = self.input_tensor_original_shape[1]
             orig_w = self.input_tensor_original_shape[2]
             
             d_input = d_input_padded[:, pad_top : pad_top + orig_h, pad_left : pad_left + orig_w, :]
-        else: # 'valid' padding, no padding was added to input
+        else:
             d_input = d_input_padded
             
         return d_input

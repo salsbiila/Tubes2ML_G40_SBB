@@ -9,7 +9,7 @@ class Layer:
         self.d_weights = None 
         self.d_biases = None
         
-        self.training_mode = True # Default to training mode
+        self.training_mode = True
 
     def forward(self, input_data):
         raise NotImplementedError

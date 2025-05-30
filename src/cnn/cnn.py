@@ -1,11 +1,7 @@
 # src/cnn/cnn.py
 import numpy as np
 import tensorflow as tf 
-from .layers import (
-    Conv2DLayer, ReLULayer, PoolingLayer, FlattenLayer, DenseLayer, 
-    SoftmaxLayer, BatchNormalizationLayer, DropoutLayer
-)
-from .losses import SparseCategoricalCrossentropy
+from .layers import Conv2DLayer, ReLULayer, PoolingLayer, FlattenLayer, DenseLayer, SoftmaxLayer
 
 class CNN:
     def __init__(self):
@@ -27,31 +23,24 @@ class CNN:
         x = input_tensor
         was_single = False
 
-        # Determine expected input ndim based on the first layer type
         expected_single_ndim = -1
         if self.layers:
             first_layer = self.layers[0]
-            if isinstance(first_layer, (Conv2DLayer, PoolingLayer)): # Expecting image-like data (H,W,C)
+            if isinstance(first_layer, (Conv2DLayer, PoolingLayer)):
                 expected_single_ndim = 3
-            elif isinstance(first_layer, (DenseLayer, FlattenLayer, BatchNormalizationLayer, DropoutLayer, ReLULayer)): # Expecting vector-like or features
-                # This is tricky if Flatten is first. Assume Dense/BN/Dropout/ReLU expect features.
-                # If Flatten is first, it expects image-like.
-                # For simplicity, if first layer is Dense, expect 1D feature vector for single.
-                if isinstance(first_layer, DenseLayer): # A Dense layer as first layer expects (Features,)
+            elif isinstance(first_layer, (DenseLayer, FlattenLayer, ReLULayer)): 
+                if isinstance(first_layer, DenseLayer):
                     expected_single_ndim = 1
-                elif len(input_tensor.shape) > 0 and input_tensor.shape[-1] > 3 : # Heuristic for feature vectors
+                elif len(input_tensor.shape) > 0 and input_tensor.shape[-1] > 3 :
                     expected_single_ndim = 1
 
 
         if expected_single_ndim != -1 and original_ndim == expected_single_ndim:
             x = np.expand_dims(input_tensor, axis=0)
             was_single = True
-        elif original_ndim == expected_single_ndim + 1: # Already batched
-            pass # Input is already batched
+        elif original_ndim == expected_single_ndim + 1:
+            pass 
         else:
-            # If the input doesn't match expected single or batched image/feature format,
-            # proceed with caution or raise an error. For now, proceed.
-            # print(f"Warning in {method_name}: Input tensor ndim {original_ndim} might not be standard for the first layer type. Proceeding.")
             pass
             
         return x, was_single
@@ -122,14 +111,6 @@ class CNN:
                     if hasattr(layer, 'biases') and layer.biases is not None and hasattr(layer, 'd_biases') and layer.d_biases is not None:
                         trainable_params_numpy.append(layer.biases)
                         gradients_numpy.append(layer.d_biases)
-
-                    if isinstance(layer, BatchNormalizationLayer):
-                        if layer.gamma is not None and hasattr(layer, 'd_gamma') and layer.d_gamma is not None:
-                             trainable_params_numpy.append(layer.gamma)
-                             gradients_numpy.append(layer.d_gamma)
-                        if layer.beta is not None and hasattr(layer, 'd_beta') and layer.d_beta is not None:
-                             trainable_params_numpy.append(layer.beta)
-                             gradients_numpy.append(layer.d_beta)
                 
                 if trainable_params_numpy: 
                     trainable_params_tf = [tf.Variable(p) for p in trainable_params_numpy]
@@ -147,13 +128,6 @@ class CNN:
                            hasattr(layer, 'd_biases') and layer.d_biases is not None:
                             layer.biases = trainable_params_tf[param_idx].numpy()
                             param_idx += 1
-                        if isinstance(layer, BatchNormalizationLayer):
-                            if layer.gamma is not None and hasattr(layer, 'd_gamma') and layer.d_gamma is not None:
-                                layer.gamma = trainable_params_tf[param_idx].numpy()
-                                param_idx += 1
-                            if layer.beta is not None and hasattr(layer, 'd_beta') and layer.d_beta is not None:
-                                layer.beta = trainable_params_tf[param_idx].numpy()
-                                param_idx += 1
                 
                 if self.loss_function.from_logits:
                     exp_logits = np.exp(y_pred_output_batched - np.max(y_pred_output_batched, axis=1, keepdims=True))
@@ -194,8 +168,7 @@ class CNN:
         output_batched = self.forward(x_batched, training=False)
         
         probabilities_batched = output_batched
-        if not isinstance(self.layers[-1], SoftmaxLayer) and \
-           (self.loss_function is None or self.loss_function.from_logits): # Check loss_function if available
+        if not isinstance(self.layers[-1], SoftmaxLayer) and (self.loss_function is None or self.loss_function.from_logits):
             exp_logits = np.exp(output_batched - np.max(output_batched, axis=-1, keepdims=True))
             probabilities_batched = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
         
@@ -210,105 +183,93 @@ class CNN:
             return np.argmax(probabilities, axis=1)
 
     def load_weights_from_keras(self, keras_model):
-        scratch_layer_idx = 0
+        manual_layer_idx = 0
         keras_layer_idx = 0
 
         print("Attempting to load weights from Keras model...")
 
-        while scratch_layer_idx < len(self.layers) and keras_layer_idx < len(keras_model.layers):
-            current_scratch_layer = self.layers[scratch_layer_idx]
+        while manual_layer_idx < len(self.layers) and keras_layer_idx < len(keras_model.layers):
+            current_manual_layer = self.layers[manual_layer_idx]
             keras_layer = keras_model.layers[keras_layer_idx]
             
-            # print(f"Comparing Scratch: {type(current_scratch_layer).__name__} with Keras: {type(keras_layer).__name__}")
+            print(f"Comparing Manual: {type(current_manual_layer).__name__} with Keras: {type(keras_layer).__name__}")
 
             loaded_this_pair = False
-            advanced_scratch = False
+            advanced_manual = False
 
-            if isinstance(keras_layer, tf.keras.layers.Conv2D) and isinstance(current_scratch_layer, Conv2DLayer):
+            if isinstance(keras_layer, tf.keras.layers.Conv2D) and isinstance(current_manual_layer, Conv2DLayer):
                 weights, biases = keras_layer.get_weights()
-                if current_scratch_layer.weights is None: # Initialize if not already
-                    current_scratch_layer.initialize_parameters(weights.shape[2]) # input_channels
-                current_scratch_layer.weights = weights
-                current_scratch_layer.biases = biases.reshape(1, 1, 1, -1)
-                # Optionally update dimensional attributes from loaded weights
-                current_scratch_layer._input_channels = weights.shape[2]
-                current_scratch_layer.f_h, current_scratch_layer.f_w = weights.shape[0], weights.shape[1]
-                current_scratch_layer.num_filters = weights.shape[3]
-                loaded_this_pair = True; advanced_scratch = True
-            elif isinstance(keras_layer, tf.keras.layers.Dense) and isinstance(current_scratch_layer, DenseLayer):
-                weights, biases = keras_layer.get_weights()
-                if current_scratch_layer.weights is None:
-                    current_scratch_layer.initialize_parameters(weights.shape[0]) # input_dim
-                current_scratch_layer.weights = weights
-                current_scratch_layer.biases = biases.reshape(1, -1)
-                current_scratch_layer.input_dim = weights.shape[0]
-                current_scratch_layer.output_dim = weights.shape[1]
-                loaded_this_pair = True; advanced_scratch = True
-            elif isinstance(keras_layer, tf.keras.layers.BatchNormalization) and isinstance(current_scratch_layer, BatchNormalizationLayer):
-                gamma, beta, moving_mean, moving_variance = keras_layer.get_weights()
-                num_features = gamma.shape[-1]
-                if current_scratch_layer.gamma is None:
-                    # Determine input_shape for BN based on previous layer's output if possible
-                    # This part is tricky if BN is first or its input_shape isn't easily inferred
-                    # For simplicity, assume initialize_parameters will be called if needed or shape matches
-                    # A dummy forward pass before loading might be more robust for BN init
-                    current_scratch_layer.input_shape = (None, None, None, num_features) if len(gamma.shape) == 1 and num_features > 3 else (None, num_features) # Heuristic
-                    current_scratch_layer.initialize_parameters(num_features)
+                if current_manual_layer.weights is None: 
+                    current_manual_layer.initialize_parameters(weights.shape[2])
+                current_manual_layer.weights = weights
+                current_manual_layer.biases = biases.reshape(1, 1, 1, -1)
+                current_manual_layer._input_channels = weights.shape[2]
+                current_manual_layer.f_h, current_manual_layer.f_w = weights.shape[0], weights.shape[1]
+                current_manual_layer.num_filters = weights.shape[3]
+                loaded_this_pair = True; advanced_manual = True
 
-                param_shape_expected = (1,1,1,num_features) if len(current_scratch_layer.input_shape) == 4 else (1, num_features)
-                current_scratch_layer.gamma = gamma.reshape(param_shape_expected)
-                current_scratch_layer.beta = beta.reshape(param_shape_expected)
-                current_scratch_layer.moving_mean = moving_mean.reshape(param_shape_expected)
-                current_scratch_layer.moving_variance = moving_variance.reshape(param_shape_expected)
-                loaded_this_pair = True; advanced_scratch = True
-            # Layers without weights but part of the architecture flow
-            elif isinstance(keras_layer, (tf.keras.layers.ReLU, tf.keras.layers.Activation)) and \
-                 hasattr(keras_layer, 'activation') and keras_layer.activation is not None and \
-                 keras_layer.activation.__name__ == 'relu' and isinstance(current_scratch_layer, ReLULayer):
-                loaded_this_pair = True; advanced_scratch = True # Matched
-            elif isinstance(keras_layer, tf.keras.layers.MaxPooling2D) and \
-                 isinstance(current_scratch_layer, PoolingLayer) and current_scratch_layer.mode == 'max':
-                current_scratch_layer.pool_h, current_scratch_layer.pool_w = keras_layer.pool_size
-                current_scratch_layer.stride_h, current_scratch_layer.stride_w = keras_layer.strides if isinstance(keras_layer.strides, tuple) else (keras_layer.strides, keras_layer.strides)
-                loaded_this_pair = True; advanced_scratch = True
-            elif isinstance(keras_layer, tf.keras.layers.AveragePooling2D) and \
-                 isinstance(current_scratch_layer, PoolingLayer) and current_scratch_layer.mode == 'average':
-                current_scratch_layer.pool_h, current_scratch_layer.pool_w = keras_layer.pool_size
-                current_scratch_layer.stride_h, current_scratch_layer.stride_w = keras_layer.strides if isinstance(keras_layer.strides, tuple) else (keras_layer.strides, keras_layer.strides)
-                loaded_this_pair = True; advanced_scratch = True
-            elif isinstance(keras_layer, tf.keras.layers.Flatten) and isinstance(current_scratch_layer, FlattenLayer):
-                loaded_this_pair = True; advanced_scratch = True
-            elif isinstance(keras_layer, tf.keras.layers.Activation) and \
-                 hasattr(keras_layer, 'activation') and keras_layer.activation.__name__ == 'softmax' and \
-                 isinstance(current_scratch_layer, SoftmaxLayer):
-                loaded_this_pair = True; advanced_scratch = True
-            elif isinstance(keras_layer, tf.keras.layers.Dropout) and isinstance(current_scratch_layer, DropoutLayer):
-                # Can optionally sync dropout rate if desired: current_scratch_layer.rate = keras_layer.rate
-                loaded_this_pair = True; advanced_scratch = True
+            elif isinstance(keras_layer, tf.keras.layers.Dense) and isinstance(current_manual_layer, DenseLayer):
+                weights, biases = keras_layer.get_weights()
+                if current_manual_layer.weights is None:
+                    current_manual_layer.initialize_parameters(weights.shape[0])
+                current_manual_layer.weights = weights
+                current_manual_layer.biases = biases.reshape(1, -1)
+                current_manual_layer.input_dim = weights.shape[0]
+                current_manual_layer.output_dim = weights.shape[1]
+                loaded_this_pair = True; advanced_manual = True
+
+            elif isinstance(current_manual_layer, ReLULayer):
+                is_keras_direct_relu = isinstance(keras_layer, tf.keras.layers.ReLU)
+                is_keras_activation_relu = (
+                    isinstance(keras_layer, tf.keras.layers.Activation) and
+                    hasattr(keras_layer, 'activation') and
+                    getattr(keras_layer.activation, '__name__', None) == 'relu'
+                )
+                if is_keras_direct_relu or is_keras_activation_relu:
+                    print(f"  Matched Keras ReLU type for manual ReLULayer.")
+                    loaded_this_pair = True
+                    advanced_manual = True
+
+            elif isinstance(keras_layer, tf.keras.layers.MaxPooling2D) and isinstance(current_manual_layer, PoolingLayer) and current_manual_layer.mode == 'max':
+                current_manual_layer.pool_h, current_manual_layer.pool_w = keras_layer.pool_size
+                current_manual_layer.stride_h, current_manual_layer.stride_w = keras_layer.strides if isinstance(keras_layer.strides, tuple) else (keras_layer.strides, keras_layer.strides)
+                loaded_this_pair = True; advanced_manual = True
+
+            elif isinstance(keras_layer, tf.keras.layers.AveragePooling2D) and isinstance(current_manual_layer, PoolingLayer) and current_manual_layer.mode == 'average':
+                current_manual_layer.pool_h, current_manual_layer.pool_w = keras_layer.pool_size
+                current_manual_layer.stride_h, current_manual_layer.stride_w = keras_layer.strides if isinstance(keras_layer.strides, tuple) else (keras_layer.strides, keras_layer.strides)
+                loaded_this_pair = True; advanced_manual = True
+
+            elif isinstance(keras_layer, tf.keras.layers.Flatten) and isinstance(current_manual_layer, FlattenLayer):
+                loaded_this_pair = True; advanced_manual = True
+
+            elif isinstance(keras_layer, tf.keras.layers.Activation) and hasattr(keras_layer, 'activation') and keras_layer.activation.__name__ == 'softmax' and isinstance(current_manual_layer, SoftmaxLayer):
+                loaded_this_pair = True; advanced_manual = True
             
             if loaded_this_pair:
-                # print(f"  Matched and processed Scratch: {type(current_scratch_layer).__name__} with Keras: {type(keras_layer).__name__}")
+                print(f"  Matched and processed manual: {type(current_manual_layer).__name__} with Keras: {type(keras_layer).__name__}")
                 pass
-            elif isinstance(keras_layer, (tf.keras.layers.InputLayer)): # Keras layers to always skip
-                # print(f"  Skipping Keras InputLayer: {keras_layer.name}")
-                pass # Don't advance scratch_layer_idx, just Keras
+            elif isinstance(keras_layer, (tf.keras.layers.InputLayer)):
+                print(f"  Skipping Keras InputLayer: {keras_layer.name}")
+                pass 
             else:
-                # print(f"  No direct match or load for Keras: {type(keras_layer).__name__} with Scratch: {type(current_scratch_layer).__name__}. Advancing Keras index only.")
-                pass # No match, advance Keras index to find next potential match
+                print(f"  No direct match or load for Keras: {type(keras_layer).__name__} with manual: {type(current_manual_layer).__name__}. Advancing Keras index only.")
+                pass
 
             keras_layer_idx += 1
-            if advanced_scratch:
-                scratch_layer_idx +=1
+            if advanced_manual:
+                manual_layer_idx +=1
         
-        if scratch_layer_idx < len(self.layers):
+        if manual_layer_idx < len(self.layers):
             unassigned_weight_layers_count = 0
-            for i in range(scratch_layer_idx, len(self.layers)):
+            for i in range(manual_layer_idx, len(self.layers)):
                 layer_to_check = self.layers[i]
-                if isinstance(layer_to_check, (Conv2DLayer, DenseLayer, BatchNormalizationLayer)):
+                if isinstance(layer_to_check, (Conv2DLayer, DenseLayer)):
                     unassigned_weight_layers_count +=1
             if unassigned_weight_layers_count > 0:
-                print(f"Warning: {unassigned_weight_layers_count} weight-bearing scratch layers were not assigned weights from the Keras model. "
-                      "This might be due to architecture mismatch or Keras having more layers (e.g. Dropout, InputLayer) "
-                      "that were skipped without a corresponding advancement in scratch layers.")
+                print(f"Warning: {unassigned_weight_layers_count} weight-bearing manual layers were not assigned weights from the Keras model. "
+                      "This might be due to architecture mismatch or Keras having more layers (InputLayer) "
+                      "that were skipped without a corresponding advancement in manual layers.")
+                
         print("Weight loading attempt finished.")
 

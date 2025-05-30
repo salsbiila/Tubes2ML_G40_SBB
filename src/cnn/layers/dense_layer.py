@@ -34,13 +34,11 @@ class DenseLayer(Layer):
             self.biases = np.random.randn(1, self.output_dim) * 0.01
 
     def forward(self, input_tensor):
-        self.input_tensor = input_tensor # Shape (batch_size, input_dim)
+        self.input_tensor = input_tensor
         
-        if self.weights is None: # Initialize parameters on the first forward pass
+        if self.weights is None:
             self.initialize_parameters(input_tensor.shape[1])
         elif self.input_dim != input_tensor.shape[1]:
-             # This could happen if the layer is reused with different input shapes without re-initialization.
-             # For simplicity in this assignment, we assume consistent input shapes after first pass or explicit re-init.
              raise ValueError(f"DenseLayer input dimension mismatch. Expected {self.input_dim}, got {input_tensor.shape[1]}. Re-initialization might be needed.")
 
         # Linear transformation: Output = Input @ Weights + Biases
@@ -48,8 +46,6 @@ class DenseLayer(Layer):
         return self.output
 
     def backward(self, output_gradient):
-        # output_gradient (dL/dO) has shape: (batch_size, self.output_dim)
-        
         # Gradient of Loss w.r.t. Weights (dL/dW)
         # dL/dW = dL/dO * dO/dW 
         # dO/dW = X^T (transpose of input_tensor)
