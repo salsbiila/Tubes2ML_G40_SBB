@@ -188,7 +188,6 @@ def main():
     print("Training completed!")
 
     print("\nPlotting training history...")
-    plot_training_history(history)
 
     print("\nEvaluating model on test set...")
     macro_f1, predictions = evaluate_model(model, test_sequences, test_labels, label_mapping)

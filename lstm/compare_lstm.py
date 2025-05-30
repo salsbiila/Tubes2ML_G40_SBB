@@ -60,7 +60,7 @@ def full_test():
         keras_model_path='model/lstm_model.h5',
         test_data=test_sequences,
         test_labels=test_labels,
-        max_samples=300
+        max_samples=400
     )    
     return results
 

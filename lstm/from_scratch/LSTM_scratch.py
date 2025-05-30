@@ -155,7 +155,7 @@ def debug_lstm_model_structure(keras_model_path):
         print()
 
 
-def compare_lstm_implementations(keras_model_path, test_data, test_labels, max_samples=100):
+def compare_lstm_implementations(keras_model_path, test_data, test_labels, max_samples=400):
     print("=== LSTM IMPLEMENTATION COMPARISON ===")
     
     if hasattr(test_data, 'numpy'):

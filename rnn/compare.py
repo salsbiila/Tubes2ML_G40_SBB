@@ -32,7 +32,7 @@ def full_test():
         keras_model_path='model/simple_rnn_model.h5',
         test_data=test_sequences,
         test_labels=test_labels_numeric,
-        max_samples=300
+        max_samples=400
     )    
     return results
 
