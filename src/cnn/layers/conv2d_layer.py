@@ -26,9 +26,6 @@ class Conv2DLayer(Layer):
         self.input_padded_for_backward = None
         self.input_tensor_original_shape = None
 
-        # self.weights: (filter_height, filter_width, input_channels, num_filters)
-        # self.biases: (1, 1, 1, num_filters) for broadcasting
-
     def initialize_parameters(self, input_channels):
         self._input_channels = input_channels
         

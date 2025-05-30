@@ -1,4 +1,3 @@
-# src/cnn/layers/softmax_layer.py
 import numpy as np
 from .base_layer import Layer
 

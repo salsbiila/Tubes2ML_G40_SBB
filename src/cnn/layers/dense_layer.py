@@ -8,8 +8,6 @@ class DenseLayer(Layer):
         self.input_dim = None
         self.weight_initializer_mode = weight_initializer_mode
         self.bias_initializer_mode = bias_initializer_mode
-        # self.weights: (input_dim, output_dim)
-        # self.biases: (1, output_dim)
 
     def initialize_parameters(self, input_dim_val):
         if self.input_dim is not None and self.input_dim != input_dim_val:
@@ -46,20 +44,17 @@ class DenseLayer(Layer):
         return self.output
 
     def backward(self, output_gradient):
-        # Gradient of Loss w.r.t. Weights (dL/dW)
         # dL/dW = dL/dO * dO/dW 
         # dO/dW = X^T (transpose of input_tensor)
         # dL/dW = X^T @ dL/dO
         self.d_weights = np.dot(self.input_tensor.T, output_gradient)
         
-        # Gradient of Loss w.r.t. Biases (dL/dB)
         # dL/dB = dL/dO * dO/dB
         # dO/dB = 1 (for each element in the batch)
         # So, dL/dB = sum(dL/dO) over the batch dimension.
         # Shape: sum over axis 0 of (batch_size, output_dim) -> (1, output_dim)
         self.d_biases = np.sum(output_gradient, axis=0, keepdims=True)
         
-        # Gradient of Loss w.r.t. Input of this layer (dL/dI)
         # dL/dI = dL/dO * dO/dI
         # dO/dI = W^T (transpose of weights)
         # dL/dI = dL/dO @ W^T

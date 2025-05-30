@@ -1,4 +1,3 @@
-# src/cnn/cnn.py
 import numpy as np
 import tensorflow as tf 
 from .layers import Conv2DLayer, ReLULayer, PoolingLayer, FlattenLayer, DenseLayer, SoftmaxLayer

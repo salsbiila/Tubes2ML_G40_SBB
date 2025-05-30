@@ -7,7 +7,6 @@ class SparseCategoricalCrossentropy:
 
     def forward(self, y_pred_logits_or_probs, y_true_sparse):
         batch_size = y_pred_logits_or_probs.shape[0]
-        num_classes = y_pred_logits_or_probs.shape[1]
         
         if y_true_sparse.ndim > 1 and y_true_sparse.shape[1] == 1:
             y_true_sparse = y_true_sparse.flatten()
@@ -28,7 +27,6 @@ class SparseCategoricalCrossentropy:
 
     def backward(self, y_pred_logits_or_probs, y_true_sparse):
         batch_size = y_pred_logits_or_probs.shape[0]
-        num_classes = y_pred_logits_or_probs.shape[1]
 
         if y_true_sparse.ndim > 1 and y_true_sparse.shape[1] == 1:
             y_true_sparse = y_true_sparse.flatten()
@@ -46,9 +44,5 @@ class SparseCategoricalCrossentropy:
         gradient[np.arange(batch_size), y_true_sparse] -= 1
         
         gradient = gradient / batch_size
-        
-        # Fully using logits for backward pass``
-        if not self.from_logits:
-            raise NotImplementedError("Backward pass for from_logits=False with SCCE is not fully implemented here. Use from_logits=True.")
             
         return gradient
