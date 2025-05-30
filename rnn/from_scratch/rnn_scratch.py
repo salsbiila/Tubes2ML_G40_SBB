@@ -147,7 +147,7 @@ def debug_model_structure(keras_model_path):
         
         print()
 
-def compare_implementations(keras_model_path, test_data, test_labels, max_samples=100):
+def compare_implementations(keras_model_path, test_data, test_labels, max_samples=400):
     if hasattr(test_data, 'numpy'):
         test_data = test_data.numpy()
     if hasattr(test_labels, 'numpy'):
